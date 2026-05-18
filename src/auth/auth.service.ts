@@ -22,7 +22,14 @@ export class AuthService {
   // 🔐 Generate JWT
   generateToken = async (
     tokenType: TokenType,
-    data: { id: number; email: string },
+    data: {
+      id: number;
+      email: string;
+      firstName?: string;
+      lastName?: string;
+      name?: string;
+      roleName?: string;
+    },
     expiry: StringValue = '1d',
   ) => {
     return this.jwt.signAsync(data, {
@@ -67,13 +74,27 @@ export class AuthService {
 
       const accessToken = await this.generateToken(
         'ACCESS_TOKEN',
-        { id: user.id!, email: user.email! },
+        {
+          id: user.id!,
+          email: user.email!,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          name: user.name,
+          roleName: user.role,
+        },
         '15m',
       );
 
       const refreshToken = await this.generateToken(
         'REFRESH_TOKEN',
-        { id: user.id!, email: user.email! },
+        {
+          id: user.id!,
+          email: user.email!,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          name: user.name,
+          roleName: user.role,
+        },
         '7d',
       );
 
@@ -81,13 +102,21 @@ export class AuthService {
 
       await this.userRepo.storeUserRefresh(email, hashedRefresh);
 
+      const cartProductsCount = await this.userRepo.getCartProductsCount(
+        user.id!,
+      );
+
       return {
         accessToken,
         refreshToken,
         user: {
           id: user.id,
           email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
           name: user.name,
+          roleName: user.role,
+          cartProductsCount,
         },
       };
     } catch (error) {
@@ -128,13 +157,27 @@ export class AuthService {
 
     const newAccessToken = await this.generateToken(
       'ACCESS_TOKEN',
-      { id: user.id!, email: user.email! },
+      {
+        id: user.id!,
+        email: user.email!,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: user.name,
+        roleName: user.role,
+      },
       '15m',
     );
 
     const newRefreshToken = await this.generateToken(
       'REFRESH_TOKEN',
-      { id: user.id!, email: user.email! },
+      {
+        id: user.id!,
+        email: user.email!,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: user.name,
+        roleName: user.role,
+      },
       '7d',
     );
 
@@ -145,6 +188,14 @@ export class AuthService {
     return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken, // used by controller for cookie
+    };
+  };
+
+  logout = async (email: string) => {
+    await this.userRepo.storeUserRefresh(email, null);
+
+    return {
+      message: 'Logged out successfully',
     };
   };
 }

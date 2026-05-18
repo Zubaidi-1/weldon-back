@@ -1,10 +1,34 @@
+enum Roles {
+  ADMIN
+  USER
+}
+
 model User {
-  id    Int     @default(autoincrement()) @id
-  email String  @unique
-  name  String
-  phoneNumber String
-  password String
-  role String @default("USER")
-  isVerified Boolean @default(false)
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  firstName    String
+  lastName     String
+  name         String
+  phoneNumber  String
+  password     String
+  role         String   @default("USER")
+  isVerified   Boolean  @default(false)
   refreshToken String?
+  cart         Cart?
+  profile      UserProfile?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model UserProfile {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String
+  phoneNumber String
+  governate   String
+  address     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

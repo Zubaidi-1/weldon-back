@@ -1,0 +1,34 @@
+model Cart {
+  cartId Int @id @default(autoincrement())
+
+  userId Int?  @unique
+  user   User? @relation(fields: [userId], references: [id])
+
+  items CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+  cartItemId Int @id @default(autoincrement())
+
+  cartId Int?
+  cart   Cart? @relation(fields: [cartId], references: [cartId], onDelete: SetNull)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [productId])
+
+  quantity Int @default(1)
+
+  price        Decimal    @db.Decimal(10, 2)
+  productName  String
+  productImage String?
+  productSize  Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orderLine    OrderLine? @relation(fields: [orderLineId], references: [id])
+  orderLineId  Int?
+
+  @@unique([cartId, productId])
+}

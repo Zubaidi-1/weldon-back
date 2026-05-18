@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Product" ADD COLUMN "productSize" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "Product" ALTER COLUMN "productSize" DROP DEFAULT;

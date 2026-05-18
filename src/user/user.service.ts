@@ -13,6 +13,8 @@ import * as bcrypt from 'bcrypt';
 import { MailerService } from 'src/mailer/mailer.service';
 import { AuthService } from 'src/auth/auth.service';
 import { PrismaClientKnownRequestError } from 'src/generated/prisma/internal/prismaNamespace';
+import type { AuthPayload } from 'src/auth/types/auth-payload.type';
+import { UserProfileDto } from './application/dto/userProfile.dto';
 
 @Injectable()
 export class UserService {
@@ -26,7 +28,8 @@ export class UserService {
       const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
       const user = UserEntity.createUserRequest(
         createUserDto.email,
-        createUserDto.name,
+        createUserDto.firstName,
+        createUserDto.lastName,
         hashedPassword,
         createUserDto.phoneNumber,
       );
@@ -76,5 +79,52 @@ export class UserService {
 
       throw new InternalServerErrorException(`Error: ${error.message}`);
     }
+  }
+
+  // Get me
+  async getMe(user?: AuthPayload) {
+    if (!user) {
+      return {
+        id: null,
+        email: null,
+        firstName: null,
+        lastName: null,
+        name: null,
+        roleName: 'GUEST',
+        cartProductsCount: 0,
+      };
+    }
+
+    const cartProductsCount = await this.userRepo.getCartProductsCount(user.id);
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+      roleName: user.roleName,
+      cartProductsCount,
+    };
+  }
+
+  async getProfile(user: AuthPayload) {
+    const profile = await this.userRepo.getUserProfile(user.id);
+
+    if (profile) return profile;
+
+    return {
+      id: null,
+      userId: user.id,
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? '',
+      phoneNumber: '',
+      governate: '',
+      address: '',
+    };
+  }
+
+  async upsertProfile(user: AuthPayload, profile: UserProfileDto) {
+    return await this.userRepo.upsertUserProfile(user.id, profile);
   }
 }

@@ -1,0 +1,34 @@
+enum ProductCategory {
+  MELA_WHITE
+  ESSENTIAL
+  HYDRATING
+  REGULATING
+  SENSITIVE
+  BEAUTY_ELEMENTS
+  VITALITY
+  BODY_SCIENCE
+  HAIR
+  MEN
+}
+
+enum productStatus {
+  ACTIVE
+  DRAFT
+  OUT_OF_STOCK
+}
+
+model Product {
+  productId          Int             @id @default(autoincrement())
+  productName        String
+  productPrice       Decimal
+  productSize        Int
+  stockQuantity      Int
+  productSku         String          @unique()
+  productDescription String
+  productCategory    ProductCategory
+  productStatus      productStatus
+  productImage       String
+  cartItem           CartItem[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}

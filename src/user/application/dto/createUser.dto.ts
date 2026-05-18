@@ -16,13 +16,21 @@ export class CreateUserDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   email!: string;
 
-  // * Name Validation
+  // * First name validation
   @IsString()
   @IsNotEmpty()
   @MaxLength(30)
-  @MinLength(3)
+  @MinLength(2)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  name!: string;
+  firstName!: string;
+
+  // * Last name validation
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  @MinLength(2)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  lastName!: string;
 
   // * Phone number validation
   @IsPhoneNumber()

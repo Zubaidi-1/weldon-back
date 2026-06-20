@@ -133,6 +133,28 @@ export class OrderService {
     return order;
   }
 
+  async cancelOrder(userId: number, orderId: number) {
+    if (!userId || !orderId) {
+      throw new ForbiddenException('No order found');
+    }
+
+    const order = await this.orderRepo.getOrderByIds(orderId, userId);
+
+    if (!order) {
+      throw new ForbiddenException('No order found');
+    }
+
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    if (Date.now() - order.createdAt.getTime() >= ONE_HOUR) {
+      throw new ForbiddenException("Can't cancel order now");
+    }
+
+    return await this.updateOrderStatus(orderId, 'CANCELLED');
+  }
+  async getUserOrders(email: string) {
+    return await this.orderRepo.findOrdersByEmail(email);
+  }
   private async getUserCartProducts(userId: number) {
     const cart = await this.cartService.getCart(userId);
 

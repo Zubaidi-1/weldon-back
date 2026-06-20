@@ -9,4 +9,9 @@ export enum ProductCategory {
   BODY_SCIENCE = 'body science',
   HAIR = 'hair',
   MEN = 'men',
+  GREEN_PEEL = 'green peel',
+  NIGHT_CARE = 'night care',
+  BODY_CARE = 'body care',
+  AMPOULE = 'ampoule',
+  DRY_SKIN = 'dry skin',
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -6,7 +7,11 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { USER_REPOSITORY } from './user.repo.token';
-import { type IUserRepository } from './domain/repositories/user.repository';
+import {
+  type IUserRepository,
+  type PaginatedUsers,
+  type UserSearchParams,
+} from './domain/repositories/user.repository';
 import { CreateUserDto } from './application/dto/createUser.dto';
 import { UserEntity } from './domain/entities/user.entity';
 import * as bcrypt from 'bcrypt';
@@ -40,7 +45,7 @@ export class UserService {
         'VERIFY_EMAIL',
         {
           id: created.id!,
-          email: created.email!,
+          email: created.email,
         },
         '2d',
       );
@@ -91,6 +96,7 @@ export class UserService {
         lastName: null,
         name: null,
         roleName: 'GUEST',
+        isBanned: false,
         cartProductsCount: 0,
       };
     }
@@ -104,6 +110,7 @@ export class UserService {
       lastName: user.lastName,
       name: user.name,
       roleName: user.roleName,
+      isBanned: user.isBanned ?? false,
       cartProductsCount,
     };
   }
@@ -126,5 +133,43 @@ export class UserService {
 
   async upsertProfile(user: AuthPayload, profile: UserProfileDto) {
     return await this.userRepo.upsertUserProfile(user.id, profile);
+  }
+
+  async banUsers(userToBanId: number): Promise<boolean> {
+    return await this.userRepo.banUser(userToBanId);
+  }
+
+  async getAllUsers(params: UserSearchParams = {}): Promise<PaginatedUsers> {
+    const safePage =
+      params.page && Number.isFinite(params.page) && params.page > 0
+        ? Math.floor(params.page)
+        : 1;
+    const safeLimit =
+      params.limit && Number.isFinite(params.limit)
+        ? Math.min(Math.max(Math.floor(params.limit), 1), 50)
+        : 10;
+    const search = params.search?.trim();
+
+    if (params.role && !['ADMIN', 'USER'].includes(params.role)) {
+      throw new BadRequestException('Invalid role filter');
+    }
+
+    if (params.banStatus && !['ACTIVE', 'BANNED'].includes(params.banStatus)) {
+      throw new BadRequestException('Invalid access filter');
+    }
+
+    if (
+      params.verificationStatus &&
+      !['VERIFIED', 'UNVERIFIED'].includes(params.verificationStatus)
+    ) {
+      throw new BadRequestException('Invalid verification filter');
+    }
+
+    return await this.userRepo.getAllUsers({
+      ...params,
+      page: safePage,
+      limit: safeLimit,
+      search,
+    });
   }
 }

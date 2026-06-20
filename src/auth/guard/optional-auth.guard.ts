@@ -1,10 +1,14 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class OptionalAuthGuard implements CanActivate {
-  constructor(private jwt: JwtService) {}
+  constructor(
+    private jwt: JwtService,
+    private prisma: PrismaService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
@@ -21,7 +25,19 @@ export class OptionalAuthGuard implements CanActivate {
         secret: process.env.ACCESS_TOKEN,
       });
 
-      request['user'] = payload;
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.id },
+        select: { isBanned: true, tokenVersion: true },
+      });
+
+      if (!user || payload.tokenVersion !== user.tokenVersion) {
+        return true;
+      }
+
+      request['user'] = {
+        ...payload,
+        isBanned: user.isBanned,
+      };
     } catch {
       return true;
     }

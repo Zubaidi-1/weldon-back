@@ -1,9 +1,9 @@
 import { Decimal } from '@prisma/client/runtime/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
-  IsEnum,
   IsIn,
   IsNumber,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -15,12 +15,47 @@ import {
   type ProductStatus,
 } from 'src/common/types/ProductTypes';
 
+function parseOptionalStringArray(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined;
+
+  const values = Array.isArray(value) ? value : [value];
+
+  return values
+    .flatMap((item) => {
+      if (typeof item !== 'string') return [];
+
+      try {
+        const parsed = JSON.parse(item) as unknown;
+
+        if (Array.isArray(parsed)) {
+          return parsed.filter((shade): shade is string => {
+            return typeof shade === 'string' && shade.trim().length > 0;
+          });
+        }
+      } catch {
+        return item.split(',');
+      }
+
+      return [item];
+    })
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 export class CreateProductDto {
   @IsString()
   @MinLength(3, { message: 'Product Name must be at least 3 charachters' })
   @MaxLength(70, { message: 'Product Name must be 70 charachters at max' })
   productName!: string;
-  @IsIn(PRODUCT_CATEGORIES) productCategory!: ProductCategory;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160, { message: 'Product subtitle must be 160 characters at max' })
+  productSubTitle?: string;
+
+  @Transform(({ value }: { value: unknown }) => parseOptionalStringArray(value))
+  @IsIn(PRODUCT_CATEGORIES, { each: true })
+  productCategory!: ProductCategory[];
 
   @IsIn(PRODUCT_STATUS) productStatus!: ProductStatus;
   @Type(() => Number)
@@ -54,6 +89,14 @@ export class CreateProductDto {
   )
   @Type(() => Number)
   stockQuantity!: number;
+
+  @IsOptional()
+  imagesToDelete?: string | string[];
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => parseOptionalStringArray(value))
+  @IsString({ each: true })
+  productShades?: string[];
 }
 
 // ! Product image is validated in the controller

@@ -4,6 +4,14 @@ export type CartProduct = {
   cartItemId: number;
   cartId: number | null;
   productId: number;
+  product?: {
+    productName: string;
+    productPrice: Decimal;
+    productSize: number;
+    productImage: string | null;
+    stockQuantity: number;
+    productCategory: string[];
+  };
   productName: string;
   productSize: number;
   price: Decimal;

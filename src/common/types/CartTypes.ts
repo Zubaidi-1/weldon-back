@@ -1,6 +1,10 @@
 import { CartEntity } from 'src/cart/domain/entities/cart.entity';
 
-export type CartItemWithLinePrice = CartEntity['items'][number] & {
+export type CartItemWithLinePrice = Omit<
+  CartEntity['items'][number],
+  'price'
+> & {
+  price: number;
   linePrice: number;
 };
 

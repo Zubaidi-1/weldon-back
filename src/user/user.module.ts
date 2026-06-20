@@ -5,15 +5,14 @@ import { USER_REPOSITORY } from './user.repo.token';
 import { UserPrismaRepository } from './infrastructure/prisma/user.prisma.repository';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { AuthService } from 'src/auth/auth.service';
-import { MailerService } from 'src/mailer/mailer.service';
+import { MailerModule } from 'src/mailer/mailer.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, MailerModule],
   controllers: [UserController],
   providers: [
     UserService,
     AuthService,
-    MailerService,
     {
       provide: USER_REPOSITORY,
       useClass: UserPrismaRepository,

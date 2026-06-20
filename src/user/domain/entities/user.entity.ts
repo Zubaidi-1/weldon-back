@@ -10,6 +10,7 @@ export class UserEntity {
     private _refreshToken: string | null,
     public role: string = 'USER',
     public isVerified?: boolean,
+    public isBanned?: boolean,
     public createdAt?: Date,
     public updatedAt?: Date,
   ) {}
@@ -23,6 +24,7 @@ export class UserEntity {
     phoneNumber: string,
     refreshToken?: string,
     isVerified?: boolean,
+    isBanned?: boolean,
   ) {
     const name = `${firstName} ${lastName}`;
 
@@ -37,6 +39,7 @@ export class UserEntity {
       refreshToken ?? null,
       'USER',
       isVerified,
+      isBanned,
     );
   }
 
@@ -51,6 +54,7 @@ export class UserEntity {
     refreshToken?: string,
     role: string = 'USER',
     isVerified?: boolean,
+    isBanned?: boolean,
   ) {
     return new UserEntity(
       id,
@@ -63,6 +67,7 @@ export class UserEntity {
       refreshToken ?? null,
       role,
       isVerified,
+      isBanned,
     );
   }
 

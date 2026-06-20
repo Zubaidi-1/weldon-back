@@ -12,9 +12,13 @@ import {
   CreateOrderDetails,
   OrderEntity,
 } from './domain/entities/order.entity';
-import { PaginatedOrders } from './domain/repositories/order.repository';
+import {
+  OrderSearchParams,
+  PaginatedOrders,
+} from './domain/repositories/order.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderStatus } from 'src/generated/prisma/enums';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 type OrderEmailType =
   | 'ORDER_CANCELLED'
@@ -37,6 +41,7 @@ export class OrderService {
     private readonly orderRepo: IOrderRepository,
     private readonly cartService: CartService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createOrder(
@@ -58,7 +63,7 @@ export class OrderService {
     for (const product of products) {
       await this.checkStock(
         product.productId,
-        product.productName,
+        product.productName ?? 'Item',
         product.quantity,
       );
     }
@@ -77,6 +82,12 @@ export class OrderService {
         name: `${order.orderFirstName} ${order.orderLastName}`.trim(),
         orderId: order.orderId,
       });
+      this.emitAdminOrderNotification(
+        'admin.order.created',
+        'ORDER_CREATED',
+        order,
+      );
+      await this.notifyOrderCreated(order);
     }
     await this.orderRepo.decrementStock(
       products.map((product) => ({
@@ -105,8 +116,8 @@ export class OrderService {
     return normalizedEmail;
   }
 
-  async getOrders(page?: number, limit?: number): Promise<PaginatedOrders> {
-    return await this.orderRepo.getOrders(page, limit);
+  async getOrders(params: OrderSearchParams = {}): Promise<PaginatedOrders> {
+    return await this.orderRepo.getOrders(params);
   }
 
   async updateOrderStatus(
@@ -129,6 +140,12 @@ export class OrderService {
         orderId: order.orderId,
       });
     }
+    this.emitAdminOrderNotification(
+      'admin.order.status.updated',
+      emailEvent ?? 'ORDER_STATUS_UPDATED',
+      order,
+    );
+    await this.notifyOrderStatusUpdated(order);
 
     return order;
   }
@@ -152,8 +169,13 @@ export class OrderService {
 
     return await this.updateOrderStatus(orderId, 'CANCELLED');
   }
-  async getUserOrders(email: string) {
+
+  async getUserOrdersByEmail(email: string) {
     return await this.orderRepo.findOrdersByEmail(email);
+  }
+
+  async getUserOrdersById(userId: number) {
+    return await this.orderRepo.getOrderByUserId(userId);
   }
   private async getUserCartProducts(userId: number) {
     const cart = await this.cartService.getCart(userId);
@@ -164,10 +186,7 @@ export class OrderService {
       cartItemId: product.cartItemId,
       productId: product.productId,
       productName: product.productName,
-      productImage: product.productImage,
-      productPrice: Number(product.price),
       quantity: product.quantity,
-      size: product.productSize,
     }));
   }
 
@@ -183,5 +202,80 @@ export class OrderService {
     }
 
     return stock;
+  }
+
+  private emitAdminOrderNotification(
+    eventName: 'admin.order.created' | 'admin.order.status.updated',
+    event: OrderEmailType | 'ORDER_STATUS_UPDATED',
+    order: OrderEntity,
+  ) {
+    this.eventEmitter.emit(eventName, {
+      event,
+      orderId: order.orderId,
+      status: order.orderStatus,
+      customerName: `${order.orderFirstName} ${order.orderLastName}`.trim(),
+      customerEmail: order.orderEmail,
+    });
+  }
+
+  private async notifyOrderCreated(order: OrderEntity) {
+    await this.notificationsService.createForAdmins({
+      type: 'ORDERS',
+      title: 'New order received',
+      message: `Order #${order.orderId} was placed by ${this.getCustomerName(order)}.`,
+      data: {
+        orderId: order.orderId,
+        status: order.orderStatus,
+        customerEmail: order.orderEmail,
+      },
+    });
+
+    if (!order.userId) return;
+
+    await this.notificationsService.createForUser(order.userId, {
+      type: 'ORDERS',
+      title: 'Order received',
+      message: `We received your order #${order.orderId}.`,
+      data: {
+        orderId: order.orderId,
+        status: order.orderStatus,
+      },
+    });
+  }
+
+  private async notifyOrderStatusUpdated(order: OrderEntity) {
+    await this.notificationsService.createForAdmins({
+      type: 'ORDERS',
+      title: 'Order status updated',
+      message: `Order #${order.orderId} is now ${this.formatStatus(order.orderStatus)}.`,
+      data: {
+        orderId: order.orderId,
+        status: order.orderStatus,
+        customerEmail: order.orderEmail,
+      },
+    });
+
+    if (!order.userId) return;
+
+    await this.notificationsService.createForUser(order.userId, {
+      type: 'ORDERS',
+      title: 'Order status updated',
+      message: `Your order #${order.orderId} is now ${this.formatStatus(order.orderStatus)}.`,
+      data: {
+        orderId: order.orderId,
+        status: order.orderStatus,
+      },
+    });
+  }
+
+  private getCustomerName(order: OrderEntity) {
+    return (
+      `${order.orderFirstName} ${order.orderLastName}`.trim() ||
+      order.orderEmail
+    );
+  }
+
+  private formatStatus(status: OrderStatus) {
+    return status.replaceAll('_', ' ').toLowerCase();
   }
 }

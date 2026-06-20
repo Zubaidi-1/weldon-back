@@ -5,4 +5,6 @@ export type AuthPayload = {
   lastName?: string;
   name?: string;
   roleName: string;
+  isBanned?: boolean;
+  tokenVersion: number;
 };

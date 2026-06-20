@@ -18,6 +18,8 @@ import type { AuthPayload } from 'src/auth/types/auth-payload.type';
 import { OrderService } from './order.service';
 import type { CreateOrderDetails } from './domain/entities/order.entity';
 import { OrderStatus } from 'src/generated/prisma/enums';
+import { RolesGuard } from 'src/auth/guard/role.guard';
+import { Roles } from 'src/auth/auth.decorator';
 
 @Controller('order')
 export class OrderController {
@@ -27,8 +29,9 @@ export class OrderController {
   async getOrders(
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('search') search?: string,
   ) {
-    return await this.orderService.getOrders(page, limit);
+    return await this.orderService.getOrders({ page, limit, search });
   }
 
   @UseGuards(OptionalAuthGuard)
@@ -43,7 +46,8 @@ export class OrderController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @Patch(':orderId/status')
   async updateOrderStatus(
     @Param('orderId', ParseIntPipe) orderId: number,
@@ -57,5 +61,25 @@ export class OrderController {
     }
 
     return await this.orderService.updateOrderStatus(orderId, body.orderStatus);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('/user-orders-by-id')
+  async getUserOrdersById(@Req() req: Request) {
+    const user = req['user'] as AuthPayload;
+    return await this.orderService.getUserOrdersById(user.id);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Get('/user-orders')
+  async getUserOrdersByEmail(@Req() req: Request) {
+    const user = req['user'] as AuthPayload;
+    return await this.orderService.getUserOrdersByEmail(user.email);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('cancel-order/:orderId')
+  async cancelOrder(@Req() req: Request, @Param('orderId') orderId: string) {
+    const user = req['user'] as AuthPayload;
+
+    return await this.orderService.cancelOrder(user.id, Number(orderId));
   }
 }

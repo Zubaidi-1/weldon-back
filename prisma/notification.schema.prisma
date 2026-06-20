@@ -1,0 +1,31 @@
+enum NotificationType {
+  ORDERS
+  DISCOUNTS
+  REVIEWS
+}
+
+enum NotificationAudience {
+  USER
+  ADMIN
+  ALL
+}
+
+model Notification {
+  notificationId Int                  @id @default(autoincrement())
+  type           NotificationType
+  audience       NotificationAudience
+  title          String
+  message        String
+  data           Json?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isRead])
+  @@index([audience, createdAt])
+}

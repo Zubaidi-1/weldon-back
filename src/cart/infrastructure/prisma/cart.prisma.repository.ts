@@ -164,7 +164,22 @@ export class CartPrismaRepository implements ICartRepository {
   async getCart(userId: number): Promise<CartEntity | null> {
     return await this.prisma.cart.findUnique({
       where: { userId },
-      include: { items: true },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                productName: true,
+                productPrice: true,
+                productSize: true,
+                productImage: true,
+                stockQuantity: true,
+                productCategory: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 

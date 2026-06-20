@@ -5,6 +5,7 @@ import {
 } from 'src/order/domain/entities/order.entity';
 import {
   IOrderRepository,
+  OrderSearchParams,
   PaginatedOrders,
 } from 'src/order/domain/repositories/order.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -14,10 +15,14 @@ import {
 } from 'src/generated/prisma/enums';
 import { ProductEntity } from 'src/product/domain/entities/product.entity';
 import { Prisma } from 'src/generated/prisma/client';
+import { DiscountPricingService } from 'src/discounts/discount-pricing.service';
 
 @Injectable()
 export class OrderPrismaRepository implements IOrderRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly discountPricingService: DiscountPricingService,
+  ) {}
 
   private toOrderEntity(order: {
     orderId: number;
@@ -28,17 +33,19 @@ export class OrderPrismaRepository implements IOrderRepository {
     orderLastName: string;
     orderGovernate: string;
     orderAddress: string;
+    couponCode: string | null;
+    couponDiscount: unknown;
     canceled: boolean;
     orderStatus: OrderEntity['orderStatus'];
     orderLine: {
       createdAt: Date;
       updatedAt: Date;
       products: {
-        cartItemId: number;
+        id: number;
         productId: number;
         productName: string;
         productImage: string | null;
-        price: unknown;
+        productPrice: unknown;
         quantity: number;
         productSize: number;
       }[];
@@ -53,17 +60,19 @@ export class OrderPrismaRepository implements IOrderRepository {
       order.orderLastName,
       order.orderGovernate,
       order.orderAddress,
+      order.couponCode,
+      Number(order.couponDiscount),
       order.canceled,
       order.orderStatus,
       order.orderLine?.products.map((product) => ({
         productId: product.productId,
         productName: product.productName,
         productImage: product.productImage,
-        productPrice: Number(product.price),
+        productPrice: Number(product.productPrice),
         quantity: product.quantity,
         size: product.productSize,
-        cartItemId: product.cartItemId,
-        lineTotal: Number(product.price) * product.quantity,
+        orderItemId: product.id,
+        lineTotal: Number(product.productPrice) * product.quantity,
       })) ?? [],
       order.orderLine?.createdAt ?? new Date(),
       order.orderLine?.updatedAt ?? new Date(),
@@ -71,12 +80,65 @@ export class OrderPrismaRepository implements IOrderRepository {
   }
 
   async createOrder(order: CreateOrderInput): Promise<OrderEntity> {
-    const existingCartItems = order.products.filter(
-      (product) => product.cartItemId !== undefined,
+    const productIds = [
+      ...new Set(order.products.map((item) => item.productId)),
+    ];
+    const products = await this.prisma.product.findMany({
+      where: {
+        productId: {
+          in: productIds,
+        },
+      },
+      select: {
+        productId: true,
+        productName: true,
+        productImage: true,
+        productPrice: true,
+        productSize: true,
+        productCategory: true,
+      },
+    });
+    const productsById = new Map(
+      products.map((product) => [product.productId, product]),
     );
-    const guestCartItems = order.products.filter(
-      (product) => product.cartItemId === undefined,
-    );
+
+    for (const orderProduct of order.products) {
+      if (!productsById.has(orderProduct.productId)) {
+        throw new NotFoundException('Item not found');
+      }
+    }
+    let discountedPrices =
+      await this.discountPricingService.getDiscountedPricesForProducts(
+        products.map((product) => ({
+          productId: product.productId,
+          productPrice: product.productPrice,
+          productCategory: product.productCategory,
+        })),
+      );
+    let couponCode: string | null = null;
+    let couponDiscount = 0;
+
+    if (order.couponCode) {
+      const couponPreview = await this.discountPricingService.redeemCoupon(
+        order.couponCode,
+        products.map((product) => {
+          const orderProduct = order.products.find(
+            (item) => item.productId === product.productId,
+          )!;
+
+          return {
+            productId: product.productId,
+            productPrice: product.productPrice,
+            productCategory: product.productCategory,
+            quantity: orderProduct.quantity,
+          };
+        }),
+      );
+
+      discountedPrices = couponPreview.linePrices;
+      couponCode = couponPreview.couponCode;
+      couponDiscount = couponPreview.couponDiscount;
+    }
 
     const createdOrder = await this.prisma.order.create({
       data: {
@@ -87,21 +149,26 @@ export class OrderPrismaRepository implements IOrderRepository {
         orderLastName: order.orderLastName,
         orderGovernate: order.orderGovernate,
         orderAddress: order.orderAddress,
+        couponCode,
+        couponDiscount,
 
         orderLine: {
           create: {
             products: {
-              connect: existingCartItems.map((product) => ({
-                cartItemId: product.cartItemId!,
-              })),
-              create: guestCartItems.map((product) => ({
-                productId: product.productId,
-                productName: product.productName,
-                productImage: product.productImage,
-                price: product.productPrice,
-                productSize: product.size,
-                quantity: product.quantity,
-              })),
+              create: order.products.map((product) => {
+                const currentProduct = productsById.get(product.productId)!;
+
+                return {
+                  productId: currentProduct.productId,
+                  productName: currentProduct.productName,
+                  productImage: currentProduct.productImage,
+                  productPrice:
+                    discountedPrices.get(currentProduct.productId) ??
+                    currentProduct.productPrice,
+                  productSize: currentProduct.productSize,
+                  quantity: product.quantity,
+                };
+              }),
             },
           },
         },
@@ -164,18 +231,81 @@ export class OrderPrismaRepository implements IOrderRepository {
       return updatedProducts;
     });
   }
-  async getOrders(
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<PaginatedOrders> {
+  private buildOrderSearchWhere(search?: string): Prisma.OrderWhereInput {
+    const normalizedSearch = search?.trim();
+
+    if (!normalizedSearch) return {};
+
+    const matchingStatuses = Object.values(OrderStatus).filter((status) =>
+      status.toLowerCase().includes(normalizedSearch.toLowerCase()),
+    );
+    const orderId = Number(normalizedSearch);
+
+    return {
+      OR: [
+        ...(Number.isInteger(orderId) && orderId > 0 ? [{ orderId }] : []),
+        { orderEmail: { contains: normalizedSearch, mode: 'insensitive' } },
+        {
+          orderPhoneNumber: {
+            contains: normalizedSearch,
+            mode: 'insensitive',
+          },
+        },
+        {
+          orderFirstName: {
+            contains: normalizedSearch,
+            mode: 'insensitive',
+          },
+        },
+        {
+          orderLastName: {
+            contains: normalizedSearch,
+            mode: 'insensitive',
+          },
+        },
+        {
+          orderGovernate: {
+            contains: normalizedSearch,
+            mode: 'insensitive',
+          },
+        },
+        {
+          orderAddress: {
+            contains: normalizedSearch,
+            mode: 'insensitive',
+          },
+        },
+        ...(matchingStatuses.length > 0
+          ? [{ orderStatus: { in: matchingStatuses } }]
+          : []),
+        {
+          orderLine: {
+            products: {
+              some: {
+                productName: {
+                  contains: normalizedSearch,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  async getOrders(params: OrderSearchParams = {}): Promise<PaginatedOrders> {
+    const { page = 1, limit = 10, search } = params;
     const safePage = Math.max(page, 1);
 
     const safeLimit = Math.min(Math.max(limit, 1), 50);
 
     const skip = (safePage - 1) * safeLimit;
+    const where = this.buildOrderSearchWhere(search);
 
     const [orders, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
+        where,
         skip,
         take: safeLimit,
 
@@ -192,13 +322,14 @@ export class OrderPrismaRepository implements IOrderRepository {
         },
       }),
 
-      this.prisma.order.count(),
+      this.prisma.order.count({ where }),
     ]);
 
     return {
       orders: orders.map((order) => this.toOrderEntity(order)),
       total,
       page: safePage,
+      limit: safeLimit,
       totalPages: Math.ceil(total / safeLimit),
     };
   }
@@ -234,5 +365,66 @@ export class OrderPrismaRepository implements IOrderRepository {
 
       throw error;
     }
+  }
+
+  // gets orders by email
+  async findOrdersByEmail(email: string): Promise<OrderEntity[]> {
+    const orders = await this.prisma.order.findMany({
+      where: { orderEmail: email },
+      include: {
+        orderLine: {
+          include: {
+            products: true,
+          },
+        },
+      },
+    });
+
+    return orders.map((order) => this.toOrderEntity(order));
+  }
+
+  // cancel order
+  async cancelOrder(userId: number, orderId: number) {
+    const order = await this.prisma.order.update({
+      where: { orderId, userId },
+      data: { orderStatus: 'CANCELLED' },
+      include: {
+        orderLine: {
+          include: {
+            products: true,
+          },
+        },
+      },
+    });
+
+    return this.toOrderEntity(order);
+  }
+
+  async getOrderByIds(
+    orderId: number,
+    userId: number,
+  ): Promise<Omit<OrderEntity, 'products'> | null> {
+    const order = await this.prisma.order.findFirst({
+      where: { orderId, userId },
+      include: {
+        orderLine: {
+          include: {
+            products: true,
+          },
+        },
+      },
+    });
+
+    return order ? this.toOrderEntity(order) : null;
+  }
+
+  // Gets all user orders by user ID
+  async getOrderByUserId(userId: number) {
+    const orders = await this.prisma.order.findMany({
+      where: { userId },
+      include: { orderLine: { include: { products: true } } },
+    });
+
+    return orders.map((order) => this.toOrderEntity(order));
   }
 }

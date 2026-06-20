@@ -6,7 +6,14 @@ export type PaginatedOrders = {
   orders: OrderEntity[];
   total: number;
   page: number;
+  limit: number;
   totalPages: number;
+};
+
+export type OrderSearchParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
 };
 
 export interface IOrderRepository {
@@ -15,6 +22,16 @@ export interface IOrderRepository {
   decrementStock(
     products: { productId: number; quantity: number }[],
   ): Promise<ProductEntity[]>;
-  getOrders(page?: number, limit?: number): Promise<PaginatedOrders>;
+  getOrders(params?: OrderSearchParams): Promise<PaginatedOrders>;
   updateOrderStatus(orderId: number, status: OrderStatus): Promise<OrderEntity>;
+  findOrdersByEmail(email: string): Promise<OrderEntity[]>;
+  cancelOrder(
+    userId: number,
+    orderId: number,
+  ): Promise<Omit<OrderEntity, 'products'>>;
+  getOrderByIds(
+    orderId: number,
+    userId: number,
+  ): Promise<Omit<OrderEntity, 'products'> | null>;
+  getOrderByUserId(userId: number): Promise<Omit<OrderEntity, 'products'>[]>;
 }

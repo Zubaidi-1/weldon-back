@@ -7,8 +7,9 @@ enum OrderStatus {
 }
 
 model Order {
-  orderId          Int        @id @default(autoincrement())
+  orderId          Int         @id @default(autoincrement())
   userId           Int?
+  user             User?       @relation(fields: [userId], references: [id])
   orderLine        OrderLine?
   orderEmail       String
   orderPhoneNumber String
@@ -16,17 +17,37 @@ model Order {
   orderLastName    String
   orderGovernate   String
   orderAddress     String
-  canceled         Boolean    @default(false)
+  couponCode       String?
+  couponDiscount   Decimal     @default(0) @db.Decimal(10, 2)
+  canceled         Boolean     @default(false)
   orderStatus      OrderStatus @default(PENDING)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 }
 
 model OrderLine {
-  id        Int        @id @default(autoincrement())
-  orderId   Int        @unique
-  order     Order      @relation(fields: [orderId], references: [orderId])
-  products  CartItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id        Int         @id @default(autoincrement())
+  orderId   Int         @unique
+  order     Order       @relation(fields: [orderId], references: [orderId])
+  products  OrderItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model OrderItem {
+  id           Int       @id @default(autoincrement())
+  orderLineId  Int
+  orderLine    OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  productId    Int
+  product      Product   @relation(fields: [productId], references: [productId])
+  productName  String
+  productImage String?
+  productPrice Decimal   @db.Decimal(10, 2)
+  productSize  Int
+  quantity     Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([orderLineId])
+  @@index([productId])
 }

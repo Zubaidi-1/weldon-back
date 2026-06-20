@@ -18,6 +18,7 @@ String.prototype.capitalize = function () {
 };
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', 1);
   app.use(cookieParser());
   app.enableCors({
     origin: 'http://localhost:3000',

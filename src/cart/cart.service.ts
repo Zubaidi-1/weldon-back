@@ -8,12 +8,14 @@ import { AddCartProduct, CartEntity } from './domain/entities/cart.entity';
 import type { ICartRepository } from './domain/repositories/cart.repository';
 import { CART_REPOSITORY } from './cart.repo.token';
 import { CartWithTotals, SyncCartItem } from 'src/common/types/CartTypes';
+import { DiscountPricingService } from 'src/discounts/discount-pricing.service';
 
 @Injectable()
 export class CartService {
   constructor(
     @Inject(CART_REPOSITORY)
     private readonly cartRepository: ICartRepository,
+    private readonly discountPricingService: DiscountPricingService,
   ) {}
 
   async addToCart(
@@ -65,15 +67,36 @@ export class CartService {
 
     if (!cart) return null;
 
+    const priceableProducts = cart.items
+      .filter((item) => item.product)
+      .map((item) => ({
+        productId: item.productId,
+        productPrice: item.product!.productPrice,
+        productCategory: item.product!.productCategory,
+      }));
+    const discountedPrices =
+      await this.discountPricingService.getDiscountedPricesForProducts(
+        priceableProducts,
+      );
+
     const itemsWithLinePrice = await Promise.all(
       cart.items.map(async (item) => {
+        const { product, ...cartItem } = item;
         const stockQuantity =
-          (await this.cartRepository.getProductStock(item.productId)) ?? 0;
+          product?.stockQuantity ??
+          (await this.cartRepository.getProductStock(item.productId)) ??
+          0;
+        const currentPrice =
+          discountedPrices.get(item.productId) ?? product?.productPrice ?? item.price;
 
         return {
-          ...item,
+          ...cartItem,
+          productName: product?.productName ?? item.productName,
+          productImage: product?.productImage ?? item.productImage,
+          productSize: product?.productSize ?? item.productSize,
+          price: Number(currentPrice),
           maxQuantity: Math.max(0, stockQuantity - 5),
-          linePrice: Number(item.price) * item.quantity,
+          linePrice: Number(currentPrice) * item.quantity,
         };
       }),
     );

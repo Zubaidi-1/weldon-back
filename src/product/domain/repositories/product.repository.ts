@@ -1,13 +1,25 @@
 import { ProductCategory } from 'src/generated/prisma/enums';
 import { ProductEntity } from '../entities/product.entity';
 
+export type ProductWriteInput = Omit<
+  ProductEntity,
+  | 'productId'
+  | 'productImage'
+  | 'productImages'
+  | 'productSubTitle'
+  | 'productShades'
+> & {
+  productSubTitle?: string | null;
+  productShades?: string[];
+};
+
 export interface IProductRepository {
   createProduct(
-    product: Omit<ProductEntity, 'productId' | 'productImage'>,
-    productImage: string,
+    product: ProductWriteInput,
+    productImages: string[],
   ): Promise<ProductEntity>;
 
-  getAllProducts(): Promise<ProductEntity[]>;
+  getAllProducts(limit?: number): Promise<ProductEntity[]>;
   getProductById(productId: number): Promise<ProductEntity | null>;
   getProductByName(productName: string): Promise<ProductEntity[] | null>;
   getProductByCategory(
@@ -16,7 +28,7 @@ export interface IProductRepository {
   deleteProduct(productId: number): Promise<ProductEntity>;
   editProduct(
     productId: number,
-    product: Omit<ProductEntity, 'productImage' | 'productId'>,
-    productImage?: string,
+    product: ProductWriteInput,
+    productImages?: string[],
   ): Promise<ProductEntity>;
 }

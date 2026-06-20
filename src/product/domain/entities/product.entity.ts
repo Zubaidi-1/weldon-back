@@ -7,9 +7,11 @@ export class ProductEntity {
 
     public productName: string,
 
+    public productSubTitle: string | null,
+
     public stockQuantity: number,
 
-    public productCategory: ProductCategory,
+    public productCategory: ProductCategory[],
 
     public productPrice: Decimal,
 
@@ -22,6 +24,10 @@ export class ProductEntity {
     public productStatus: ProductStatus,
 
     public productImage: string,
+
+    public productImages: string[] = [],
+
+    public productShades: string[] = [],
 
     public createdAt?: Date,
 

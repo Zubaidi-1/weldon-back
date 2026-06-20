@@ -1,7 +1,7 @@
 import { OrderStatus } from 'src/generated/prisma/enums';
 
 export type OrderProduct = {
-  cartItemId: number;
+  orderItemId: number;
   productId: number;
   productName: string;
   productImage: string | null;
@@ -14,11 +14,11 @@ export type OrderProduct = {
 export type CreateOrderProduct = {
   cartItemId?: number;
   productId: number;
-  productName: string;
-  productImage: string | null;
-  productPrice: number;
+  productName?: string;
+  productImage?: string | null;
+  productPrice?: number;
   quantity: number;
-  size: number;
+  size?: number;
 };
 
 export type CreateOrderInput = Omit<
@@ -27,14 +27,18 @@ export type CreateOrderInput = Omit<
   | 'canceled'
   | 'orderStatus'
   | 'products'
+  | 'couponDiscount'
+  | 'couponCode'
   | 'createdAt'
   | 'updatedAt'
 > & {
   products: CreateOrderProduct[];
+  couponCode?: string;
 };
 
 export type CreateOrderDetails = Omit<CreateOrderInput, 'userId'> & {
   products?: CreateOrderProduct[];
+  couponCode?: string;
 };
 
 export class OrderEntity {
@@ -49,6 +53,8 @@ export class OrderEntity {
     public orderLastName: string,
     public orderGovernate: string,
     public orderAddress: string,
+    public couponCode: string | null,
+    public couponDiscount: number,
 
     public canceled: boolean,
     public orderStatus: OrderStatus,

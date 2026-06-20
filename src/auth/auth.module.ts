@@ -5,9 +5,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { USER_REPOSITORY } from 'src/user/user.repo.token';
 import { UserPrismaRepository } from 'src/user/infrastructure/prisma/user.prisma.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { MailerModule } from 'src/mailer/mailer.module';
 
 @Module({
   imports: [
+    MailerModule,
     JwtModule.register({
       global: true,
     }),

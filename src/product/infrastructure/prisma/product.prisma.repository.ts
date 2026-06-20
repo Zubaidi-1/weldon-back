@@ -1,33 +1,33 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
+import { Injectable } from '@nestjs/common';
 import {
   ProductCategory,
   productStatus as ProductStatusEnum,
 } from 'src/generated/prisma/enums';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductEntity } from 'src/product/domain/entities/product.entity';
-import { IProductRepository } from 'src/product/domain/repositories/product.repository';
+import {
+  IProductRepository,
+  ProductWriteInput,
+} from 'src/product/domain/repositories/product.repository';
 
 @Injectable()
 export class ProductPrismaRepository implements IProductRepository {
   constructor(private prisma: PrismaService) {}
 
   async createProduct(
-    product: Omit<ProductEntity, 'productId' | 'productImage'>,
-    productImage: string,
+    product: ProductWriteInput,
+    productImages: string[],
   ): Promise<ProductEntity> {
-    console.log(product);
     return await this.prisma.product.create({
       data: {
         productName: product.productName,
+        productSubTitle: product.productSubTitle ?? null,
         productCategory: product.productCategory,
         productStatus: product.productStatus,
         productDescription: product.productDescription,
-        productImage: productImage,
+        productImage: productImages[0],
+        productImages,
+        productShades: product.productShades ?? [],
         productSku: product.productSku,
         productPrice: product.productPrice,
         productSize: product.productSize,
@@ -35,9 +35,10 @@ export class ProductPrismaRepository implements IProductRepository {
       },
     });
   }
-  async getAllProducts(): Promise<ProductEntity[]> {
+  async getAllProducts(limit?: number): Promise<ProductEntity[]> {
     return await this.prisma.product.findMany({
       orderBy: { createdAt: 'desc' },
+      ...(limit ? { take: limit } : {}),
     });
   }
 
@@ -64,7 +65,7 @@ export class ProductPrismaRepository implements IProductRepository {
     productCategory: ProductCategory,
   ): Promise<ProductEntity[] | null> {
     return await this.prisma.product.findMany({
-      where: { productCategory },
+      where: { productCategory: { has: productCategory } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -75,8 +76,8 @@ export class ProductPrismaRepository implements IProductRepository {
 
   async editProduct(
     productId: number,
-    product: Omit<ProductEntity, 'productImage' | 'productId'>,
-    productImage?: string,
+    product: ProductWriteInput,
+    productImages?: string[],
   ): Promise<ProductEntity> {
     const productStatus =
       product.stockQuantity <= 5
@@ -86,9 +87,19 @@ export class ProductPrismaRepository implements IProductRepository {
     return await this.prisma.product.update({
       where: { productId },
       data: {
-        ...product,
+        productName: product.productName,
+        productSubTitle: product.productSubTitle ?? null,
+        productCategory: product.productCategory,
         productStatus,
-        ...(productImage ? { productImage } : {}),
+        productDescription: product.productDescription,
+        productShades: product.productShades ?? [],
+        productSku: product.productSku,
+        productPrice: product.productPrice,
+        productSize: product.productSize,
+        stockQuantity: product.stockQuantity,
+        ...(productImages
+          ? { productImage: productImages[0], productImages }
+          : {}),
       },
     });
   }

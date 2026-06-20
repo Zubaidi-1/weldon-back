@@ -1,0 +1,15 @@
+model Review {
+  reviewId Int    @id @default(autoincrement())
+  review   String
+  stars    Int
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [productId])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  is_Verified_review Boolean // after they order it to make sure they acttually bought it
+
+  @@unique([userId, productId])
+}

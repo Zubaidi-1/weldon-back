@@ -12,6 +12,11 @@ export const PRODUCT_CATEGORIES = [
   'BODY_SCIENCE',
   'HAIR',
   'MEN',
+  'GREEN_PEEL',
+  'NIGHT_CARE',
+  'BODY_CARE',
+  'AMPOULE',
+  'DRY_SKIN',
 ] as const;
 
 export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];

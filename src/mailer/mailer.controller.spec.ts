@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MailerController } from './mailer.controller';
 import { MailerService } from './mailer.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 describe('MailerController', () => {
   let controller: MailerController;
@@ -8,7 +9,17 @@ describe('MailerController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MailerController],
-      providers: [MailerService],
+      providers: [
+        MailerService,
+        {
+          provide: PrismaService,
+          useValue: {
+            user: {
+              findMany: jest.fn(),
+            },
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<MailerController>(MailerController);

@@ -9,6 +9,11 @@ enum ProductCategory {
   BODY_SCIENCE
   HAIR
   MEN
+  GREEN_PEEL
+  NIGHT_CARE
+  BODY_CARE
+  AMPOULE
+  DRY_SKIN
 }
 
 enum productStatus {
@@ -18,17 +23,23 @@ enum productStatus {
 }
 
 model Product {
-  productId          Int             @id @default(autoincrement())
+  productId          Int               @id @default(autoincrement())
   productName        String
+  productSubTitle    String?
   productPrice       Decimal
   productSize        Int
   stockQuantity      Int
-  productSku         String          @unique()
+  productSku         String            @unique()
   productDescription String
-  productCategory    ProductCategory
+  productCategory    ProductCategory[] @default([])
   productStatus      productStatus
   productImage       String
+  productImages      String[]          @default([])
+  productShades      String[]          @default([])
+  reviews            Review[]
+  discounts          Discount[]
   cartItem           CartItem[]
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  orderItems         OrderItem[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 }

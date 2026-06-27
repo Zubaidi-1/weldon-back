@@ -52,14 +52,17 @@ export class UserController {
 
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: Response) {
+    const frontendUrl =
+      process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:3000';
+
     try {
       await this.userService.verifyUser(token);
 
       // success → redirect to login
-      return res.redirect('http://localhost:3000/auth/login?verified=true');
+      return res.redirect(`${frontendUrl}/auth/login?verified=true`);
     } catch (e) {
       // failure → still redirect to login
-      return res.redirect('http://localhost:3000/auth/login?verified=false');
+      return res.redirect(`${frontendUrl}/auth/login?verified=false`);
     }
   }
   @UseGuards(JwtAuthGuard, RolesGuard)

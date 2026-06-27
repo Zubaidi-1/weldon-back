@@ -6,6 +6,9 @@ export default class SocketClient implements OnModuleInit {
   public socketClient: Socket;
   onModuleInit() {}
   constructor() {
-    this.socketClient = io('http://localhost:3001');
+    const backendUrl =
+      process.env.API_URL || process.env.BACKEND_URL || 'http://localhost:3001';
+
+    this.socketClient = io(backendUrl);
   }
 }
